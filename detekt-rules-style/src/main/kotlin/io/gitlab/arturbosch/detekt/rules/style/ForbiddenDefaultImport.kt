@@ -49,7 +49,7 @@ class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
                 CodeSmell(
                     issue,
                     Entity.from(importDirective),
-                    "The import ${importDirective.importPath?.pathStr} has been forbidden in the Detekt config."
+                    "The import '${importDirective.importedFqName}' has been forbidden in the Detekt config."
                 )
             )
         }
