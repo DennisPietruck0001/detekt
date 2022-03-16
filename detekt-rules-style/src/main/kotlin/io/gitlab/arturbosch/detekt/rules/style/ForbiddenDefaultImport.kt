@@ -15,18 +15,17 @@ class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
 
     override fun visitImportDirective(importDirective: KtImportDirective) {
         super.visitImportDirective(importDirective)
-        if(importDirective.aliasName != null) return
+        if (importDirective.aliasName != null) return
 
         val importedName = importDirective.importPath?.importedName
         val importPath = importDirective.importPath
-        if (importPath== null) return
+        if (importPath == null) return
 
-        val pathToStrip = if (importPath.isAllUnder) {
-            importPath?.fqName?.asString()
+        val qualifiedPackage = if (importPath.isAllUnder) {
+            importPath.fqName.asString()
         } else {
-            importPath.pathStr
+            importPath.pathStr.removeSuffix(".$importedName")
         }
-        val qualifiedPackage = importPath?.pathStr?.removeSuffix(".$pathToStrip")
 
         if (DEFAULT_IMPORTS.contains(qualifiedPackage)) {
             report(
