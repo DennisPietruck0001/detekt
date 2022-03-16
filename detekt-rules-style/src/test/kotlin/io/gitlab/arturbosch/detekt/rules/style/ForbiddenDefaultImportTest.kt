@@ -23,14 +23,13 @@ internal class ForbiddenDefaultImportTest : Spek({
         context("report default import") {
             it("is default import") {
                 val code = """
+            import kotlin.ranges.*
             import kotlin.io.DEFAULT_BUFFER_SIZE
             import kotlin.io.FileTreeWalk
             import kotlin.io.println
-            import kotlin.ranges.*
-            import kotlin.Exception as KotlinException
             """
                 val findings = subject.compileAndLintWithContext(env, code)
-                assertThat(findings).hasSize(5)
+                assertThat(findings).hasSize(4)
             }
         }
         context("ignore non defaults") {
@@ -38,6 +37,8 @@ internal class ForbiddenDefaultImportTest : Spek({
                 val code = """
                     import kotlin.math.PI
                     import kotlin.contracts.Returns
+                    import kotlin.Exception as KotlinException
+                    import kotlin.io.FileWalkDirection.BOTTOM_UP
                 """
                 val findings = subject.compileAndLintWithContext(env, code)
                 assertThat(findings).isEmpty()

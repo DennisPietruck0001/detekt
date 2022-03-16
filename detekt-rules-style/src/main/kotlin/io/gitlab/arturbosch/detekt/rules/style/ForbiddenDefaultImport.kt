@@ -1,12 +1,6 @@
 package io.gitlab.arturbosch.detekt.rules.style
 
-import io.gitlab.arturbosch.detekt.api.CodeSmell
-import io.gitlab.arturbosch.detekt.api.Config
-import io.gitlab.arturbosch.detekt.api.Debt
-import io.gitlab.arturbosch.detekt.api.Entity
-import io.gitlab.arturbosch.detekt.api.Issue
-import io.gitlab.arturbosch.detekt.api.Rule
-import io.gitlab.arturbosch.detekt.api.Severity
+import io.gitlab.arturbosch.detekt.api.*
 import io.gitlab.arturbosch.detekt.api.internal.RequiresTypeResolution
 import org.jetbrains.kotlin.psi.KtImportDirective
 
@@ -24,7 +18,15 @@ class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
         if(importDirective.aliasName != null) return
 
         val importedName = importDirective.importPath?.importedName
-        val qualifiedPackage = importDirective.importPath?.pathStr?.removeSuffix(".$importedName")
+        val importPath = importDirective.importPath
+        if (importPath== null) return
+
+        val pathToStrip = if (importPath.isAllUnder) {
+            importPath?.fqName?.asString()
+        } else {
+            importPath.pathStr
+        }
+        val qualifiedPackage = importPath?.pathStr?.removeSuffix(".$pathToStrip")
 
         if (DEFAULT_IMPORTS.contains(qualifiedPackage)) {
             report(
