@@ -2,8 +2,11 @@ package io.gitlab.arturbosch.detekt.rules.style
 
 import io.gitlab.arturbosch.detekt.api.*
 import io.gitlab.arturbosch.detekt.api.internal.RequiresTypeResolution
+import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtImportDirective
+import org.jetbrains.kotlin.psi.KtImportInfo
 import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.bindingContextUtil.getReferenceTargets
 
 @RequiresTypeResolution
 class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
@@ -13,6 +16,8 @@ class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
         "TODO",
         Debt.TEN_MINS
     )
+
+    private val violatingImportDirectiveCandidates = mutableListOf<KtImportDirective>()
 
     override fun visitImportDirective(importDirective: KtImportDirective) {
         super.visitImportDirective(importDirective)
@@ -28,13 +33,23 @@ class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
             importPath.pathStr.removeSuffix(".$nameToStrip")
         }
 
+        val content: KtImportInfo.ImportContent.ExpressionBased? = importDirective.importContent as? KtImportInfo.ImportContent.ExpressionBased
+        val referenceTargets = content?.expression?.getReferenceTargets(bindingContext)
+
         if (DEFAULT_IMPORTS.contains(qualifiedPackage)) {
+            violatingImportDirectiveCandidates += importDirective
+        }
+    }
+
+    override fun postVisit(root: KtFile) {
+        super.postVisit(root)
+
+        violatingImportDirectiveCandidates.forEach { importDirective ->
             report(
                 CodeSmell(
                     issue,
                     Entity.from(importDirective),
-                    "The import " +
-                        "$qualifiedPackage has been forbidden in the Detekt config."
+                    "The import ${importDirective.importPath?.pathStr} has been forbidden in the Detekt config."
                 )
             )
         }

@@ -46,9 +46,23 @@ internal class ForbiddenDefaultImportTest : Spek({
 
             it("should not report without type resolution") {
                 val code = """
-            import kotlin.io.println
-            """
+                    import kotlin.io.println
+                """
                 val findings = subject.compileAndLint(code)
+                assertThat(findings).isEmpty()
+            }
+
+            it("should not report when import overwrites local") {
+                val code = """
+                    package test
+                    import kotlin.Exception
+
+                    data class Exception(val x: Int)
+                    
+                    fun kotlinException(): Exception = IllegalStateException("nooo")
+                    fun customException(): test.Exception = Exception(1)
+                """
+                val findings = subject.compileAndLintWithContext(env, code)
                 assertThat(findings).isEmpty()
             }
         }
