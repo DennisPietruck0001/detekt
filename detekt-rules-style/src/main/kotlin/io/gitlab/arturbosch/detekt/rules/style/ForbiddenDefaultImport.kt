@@ -8,7 +8,6 @@ import io.gitlab.arturbosch.detekt.api.Issue
 import io.gitlab.arturbosch.detekt.api.Rule
 import io.gitlab.arturbosch.detekt.api.Severity
 import io.gitlab.arturbosch.detekt.api.internal.RequiresTypeResolution
-import io.gitlab.arturbosch.detekt.api.simplePatternToRegex
 import org.jetbrains.kotlin.psi.KtImportDirective
 
 @RequiresTypeResolution
@@ -22,30 +21,33 @@ class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
 
     override fun visitImportDirective(importDirective: KtImportDirective) {
         super.visitImportDirective(importDirective)
+        if(importDirective.aliasName != null) return
 
-        val import = importDirective.importedFqName?.asString().orEmpty()
-        if (DEFAULT_IMPORTS.any { it.matches(import) }) {
+        val importedName = importDirective.importPath?.importedName
+        val qualifiedPackage = importDirective.importPath?.pathStr?.removeSuffix(".$importedName")
+
+        if (DEFAULT_IMPORTS.contains(qualifiedPackage)) {
             report(
                 CodeSmell(
                     issue,
                     Entity.from(importDirective),
                     "The import " +
-                        "$import has been forbidden in the Detekt config."
+                        "$qualifiedPackage has been forbidden in the Detekt config."
                 )
             )
         }
     }
 
     private companion object {
-        private val DEFAULT_IMPORTS = listOf(
-            "kotlin.*",
-            "kotlin.annotation.*",
-            "kotlin.collections.*",
-            "kotlin.comparisons.*",
-            "kotlin.io.*",
-            "kotlin.ranges.*",
-            "kotlin.sequences.*",
-            "kotlin.text.*",
-        ).map(String::simplePatternToRegex)
+        private val DEFAULT_IMPORTS = setOf(
+            "kotlin",
+            "kotlin.annotation",
+            "kotlin.collections",
+            "kotlin.comparisons",
+            "kotlin.io",
+            "kotlin.ranges",
+            "kotlin.sequences",
+            "kotlin.text",
+        )
     }
 }
