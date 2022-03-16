@@ -2,11 +2,12 @@ package io.gitlab.arturbosch.detekt.rules.style
 
 import io.gitlab.arturbosch.detekt.api.*
 import io.gitlab.arturbosch.detekt.api.internal.RequiresTypeResolution
+import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import org.jetbrains.kotlin.codegen.kotlinType
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtImportDirective
-import org.jetbrains.kotlin.psi.KtImportInfo
+import org.jetbrains.kotlin.psi.KtReferenceExpression
 import org.jetbrains.kotlin.resolve.BindingContext
-import org.jetbrains.kotlin.resolve.bindingContextUtil.getReferenceTargets
 
 @RequiresTypeResolution
 class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
@@ -20,6 +21,7 @@ class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
     private val violatingImportDirectiveCandidates = mutableListOf<KtImportDirective>()
 
     override fun visitImportDirective(importDirective: KtImportDirective) {
+        val e = listOf("").map(::Exception)
         super.visitImportDirective(importDirective)
         if (bindingContext == BindingContext.EMPTY) return
         if (importDirective.aliasName != null) return
@@ -33,11 +35,21 @@ class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
             importPath.pathStr.removeSuffix(".$nameToStrip")
         }
 
-        val content: KtImportInfo.ImportContent.ExpressionBased? = importDirective.importContent as? KtImportInfo.ImportContent.ExpressionBased
-        val referenceTargets = content?.expression?.getReferenceTargets(bindingContext)
-
         if (DEFAULT_IMPORTS.contains(qualifiedPackage)) {
             violatingImportDirectiveCandidates += importDirective
+        }
+    }
+
+    override fun visitReferenceExpression(expression: KtReferenceExpression) {
+        super.visitReferenceExpression(expression)
+        if (violatingImportDirectiveCandidates.isEmpty()) return
+        val referencedType = expression.kotlinType(bindingContext)?.fqNameOrNull() ?: return
+
+        violatingImportDirectiveCandidates.removeAll { candidate ->
+            val violatingType = candidate.importPath?.fqName
+            violatingType != null
+                && violatingType != referencedType
+                && violatingType.shortName() == referencedType.shortName()
         }
     }
 
