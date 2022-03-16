@@ -63,6 +63,21 @@ internal class ForbiddenDefaultImportTest : Spek({
                 val findings = subject.compileAndLintWithContext(env, code)
                 assertThat(findings).isEmpty()
             }
+            it("should not report when import overwrites local") {
+                val code = """
+                        package test
+
+                        import kotlin.Result // we need this
+                        
+                        fun foo() {
+                          val a: Result<Unit> = runCatching { println("bar") }
+                        }
+                        
+                        class Result
+                """
+                val findings = subject.compileAndLintWithContext(env, code)
+                assertThat(findings).isEmpty()
+            }
         }
     }
 }
