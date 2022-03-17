@@ -1,6 +1,6 @@
 package io.gitlab.arturbosch.detekt.rules.style
 
+import kotlin.ranges.*
 
-fun <T> listOf(i: Int, j:Int): List<Int> = throw NotImplementedError("")
 
-class Result
+val c: CharProgression = TODO()

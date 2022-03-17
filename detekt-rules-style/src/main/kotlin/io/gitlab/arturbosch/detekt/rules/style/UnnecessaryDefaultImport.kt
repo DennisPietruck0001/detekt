@@ -20,7 +20,7 @@ class UnnecessaryDefaultImport(config: Config = Config.empty) : Rule(config) {
     override val issue = Issue(
         javaClass.simpleName,
         Severity.Style,
-        "TODO",
+        "TODO", // TODO
         Debt.TEN_MINS
     )
 
@@ -77,7 +77,7 @@ class UnnecessaryDefaultImport(config: Config = Config.empty) : Rule(config) {
                 CodeSmell(
                     issue,
                     Entity.from(importDirective),
-                    "The import '${importDirective.importedFqName}' has been forbidden in the Detekt config."
+                    "The import '${importDirective.importedFqName}' is unnecessary because it is imported by default."
                 )
             )
         }

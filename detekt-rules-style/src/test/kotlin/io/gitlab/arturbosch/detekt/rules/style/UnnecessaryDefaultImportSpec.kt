@@ -6,6 +6,7 @@ import io.gitlab.arturbosch.detekt.rules.setupKotlinEnvironment
 import io.gitlab.arturbosch.detekt.test.assertThat
 import io.gitlab.arturbosch.detekt.test.compileAndLint
 import io.gitlab.arturbosch.detekt.test.compileAndLintWithContext
+import org.intellij.lang.annotations.Language
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.spekframework.spek2.Spek
 import org.spekframework.spek2.style.specification.describe
@@ -13,74 +14,91 @@ import org.spekframework.spek2.style.specification.describe
 @KotlinCoreEnvironmentTest
 internal class UnnecessaryDefaultImportSpec : Spek({
     setupKotlinEnvironment(additionalJavaSourceRootPath = resourceAsPath("java"))
-
-    val env: KotlinCoreEnvironment by memoized()
     val subject by memoized { UnnecessaryDefaultImport() }
-
     describe("UnnecessaryDefaultImport rule") {
-        context("report default import") {
-            it("is default import") {
-                val code = """
-                    import kotlin.ranges.*
-                    import kotlin.io.DEFAULT_BUFFER_SIZE
-                    import kotlin.io.FileTreeWalk
-                    import kotlin.io.println
-            """
-                val findings = subject.compileAndLintWithContext(env, code)
-                assertThat(findings).hasSize(4)
-            }
-
-            xit("should report when import unnecessarily overwrites local function with different signature") {
-                // the kotlin function is preferred if the signature matches
-                val code = """
-                        package test
-
-                        import kotlin.collections.emptyList
-                        
-                        fun emptyList(i: Int) {}
-
-                        val y = emptyList<Int>()
-                """
-                val findings = subject.compileAndLintWithContext(env, code)
-                assertThat(findings).hasSize(1)
-            }
-        }
-        context("ignore non defaults") {
-            it("is non default import") {
-                val code = """
-                    import kotlin.math.PI
-                    import kotlin.contracts.Returns
-                    import kotlin.Exception as KotlinException
-                    import kotlin.io.FileWalkDirection.BOTTOM_UP
-                """
-                val findings = subject.compileAndLintWithContext(env, code)
-                assertThat(findings).isEmpty()
-            }
-
-            it("should not report without type resolution") {
+        context("without type resolution") {
+            it("should not report any violations") {
                 val code = """
                     import kotlin.io.println
                 """
                 val findings = subject.compileAndLint(code)
                 assertThat(findings).isEmpty()
             }
+        }
+        context("with type resolution") {
+            val env: KotlinCoreEnvironment by memoized()
 
-            it("should not report when import overwrites local") {
-                val code = """
-                    package test
-                    import kotlin.Exception
-
-                    data class Exception(val x: Int)
-                    
-                    fun kotlinException(): Exception = IllegalStateException("nooo")
-                    fun customException(): test.Exception = Exception(1)
-                """
+            fun assertNoViolations(@Language("kotlin") code: String) {
                 val findings = subject.compileAndLintWithContext(env, code)
                 assertThat(findings).isEmpty()
             }
 
-            it("should not report when import overwrites local type definition") {
+            context("fully qualified import") {
+                val findings by memoized {
+                    val code = """
+                    import kotlin.io.DEFAULT_BUFFER_SIZE
+                    import kotlin.io.FileTreeWalk
+                    import kotlin.io.println
+            """
+                    subject.compileAndLintWithContext(env, code)
+                }
+
+                it("should be reported") {
+                    assertThat(findings).hasSize(3)
+                }
+
+                it("should produce the correct message") {
+                    assertThat(findings)
+                        .extracting("message")
+                        .contains("The import 'kotlin.io.DEFAULT_BUFFER_SIZE' is unnecessary because it is imported by default.")
+                }
+
+                it("should produce the correct line numbers") {
+                    assertThat(findings)
+                        .extracting("location.source.line")
+                        .containsExactlyInAnyOrder(1, 2, 3)
+                }
+            }
+
+            // TODO: all packages (jvm?)
+
+            it("should report wildcard import") {
                 val code = """
+                    import kotlin.ranges.*
+            """
+                val findings = subject.compileAndLintWithContext(env, code)
+                assertThat(findings).hasSize(1)
+            }
+
+            it("should not report alias import") {
+                assertNoViolations(
+                    """
+                    import kotlin.Exception as KotlinException
+            """
+                )
+            }
+
+            it("should not report enum value") {
+                assertNoViolations(
+                    """
+                    import kotlin.io.FileWalkDirection.BOTTOM_UP
+            """
+                )
+            }
+
+            it("should not report imports from non default packages") {
+                assertNoViolations(
+                    """
+                    import kotlin.math.PI
+                    import kotlin.contracts.Returns
+                """
+                )
+            }
+
+            context("and overwritten elements") {
+                it("should not report when local type overwrites imported type") {
+                    assertNoViolations(
+                        """
                         package test
 
                         import kotlin.Result // we need this
@@ -90,13 +108,25 @@ internal class UnnecessaryDefaultImportSpec : Spek({
                         }
                         
                         class Result
-                """
-                val findings = subject.compileAndLintWithContext(env, code)
-                assertThat(findings).isEmpty()
-            }
+                        """
+                    )
+                }
+                it("should not report when local enum class overwrites imported enum class") {
+                    assertNoViolations(
+                        """
+                        package test
 
-            it("should not report when import overwrites local value") {
-                val code = """
+                        import kotlin.io.FileWalkDirection // we need this
+                        
+                        enum class FileWalkDirection
+
+                        val x = FileWalkDirection.TOP_DOWN.name
+                """
+                    )
+                }
+                it("should not report when local value overwrites imported value") {
+                    assertNoViolations(
+                        """
                         package test
 
                         import kotlin.io.DEFAULT_BUFFER_SIZE // we need this
@@ -106,26 +136,11 @@ internal class UnnecessaryDefaultImportSpec : Spek({
                           println(DEFAULT_BUFFER_SIZE)
                         }
                 """
-                val findings = subject.compileAndLintWithContext(env, code)
-                assertThat(findings).isEmpty()
-            }
-
-            it("should not report when import overwrites local enum") {
-                val code = """
-                        package test
-
-                        import kotlin.io.FileWalkDirection // we need this
-                        
-                        enum class FileWalkDirection
-
-                        val x = FileWalkDirection.TOP_DOWN.name
-                """
-                val findings = subject.compileAndLintWithContext(env, code)
-                assertThat(findings).isEmpty()
-            }
-
-            it("should not report when import overwrites local function with same signature") {
-                val code = """
+                    )
+                }
+                it("should not report when local function overwrites imported function with same signature") {
+                    assertNoViolations(
+                        """
                         package test
 
                         import kotlin.collections.emptyList // we need this
@@ -134,12 +149,11 @@ internal class UnnecessaryDefaultImportSpec : Spek({
                         
                         val y = emptyList<Int>()
                 """
-                val findings = subject.compileAndLintWithContext(env, code)
-                assertThat(findings).isEmpty()
-            }
-
-            it("should not report when import overwrites local function with compatible signature") {
-                val code = """
+                    )
+                }
+                it("should not report when local function overwrites imported function with compatible parameters") {
+                    assertNoViolations(
+                        """
                         package test
                         
                         import kotlin.collections.listOf // we need this
@@ -147,24 +161,22 @@ internal class UnnecessaryDefaultImportSpec : Spek({
                         fun <T> listOf(i: Int): Map<Int, Int> = throw NotImplementedError("")
                         
                         val y: List<Int> = listOf(1)
-                """
-                val findings = subject.compileAndLintWithContext(env, code)
-                assertThat(findings).isEmpty()
-            }
-
-            it("should not report when import overwrites local function with unknown signature") {
-                // this case must be fixed
-                val code = """
+                        """
+                    )
+                }
+                xit("should report when local function overwrites imported function with incompatible parameters") {
+                    val code = """
                         package test
 
-                        import kotlin.collections.emptyList
+                        import kotlin.collections.emptyList // this is unnecessary
                         
                         fun emptyList(i: Int) {}
 
                         val y = emptyList<Int>()
                 """
-                val findings = subject.compileAndLintWithContext(env, code)
-                assertThat(findings).isEmpty()
+                    val findings = subject.compileAndLintWithContext(env, code)
+                    assertThat(findings).isEmpty()
+                }
             }
         }
     }
