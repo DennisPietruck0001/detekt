@@ -6,10 +6,11 @@ import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
 import io.gitlab.arturbosch.detekt.rules.identifierName
 import org.jetbrains.kotlin.codegen.kotlinType
 import org.jetbrains.kotlin.psi.KtClass
-import org.jetbrains.kotlin.psi.KtClassLiteralExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtImportDirective
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtReferenceExpression
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.ImportPath
@@ -60,11 +61,11 @@ class UnnecessaryDefaultImport(config: Config = Config.empty) : Rule(config) {
         }
     }
 
-    override fun visitClass(klass: KtClass) {
-        super.visitClass(klass)
+    override fun visitNamedDeclaration(declaration: KtNamedDeclaration) {
+        super.visitNamedDeclaration(declaration)
 
         violatingImportDirectiveCandidates.removeAll{ candidate ->
-            candidate.importedTypeOrNull() == klass.identifierName()
+            candidate.importedTypeOrNull() == declaration.identifierName()
         }
     }
 
