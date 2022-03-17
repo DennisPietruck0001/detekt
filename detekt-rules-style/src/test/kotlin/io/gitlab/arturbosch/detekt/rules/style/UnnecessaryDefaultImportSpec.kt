@@ -60,7 +60,26 @@ internal class UnnecessaryDefaultImportSpec : Spek({
                 }
             }
 
-            // TODO: all packages (jvm?)
+            listOf(
+                "kotlin.Any",
+                "kotlin.annotation.Target",
+                "kotlin.collections.Map",
+                "kotlin.comparisons.compareBy",
+                "kotlin.io.println",
+                "kotlin.ranges.IntRange",
+                "kotlin.sequences.Sequence",
+                "kotlin.text.Regex",
+                "java.lang.Integer",
+                "kotlin.jvm.JvmStatic",
+            ).forEach { symbol ->
+                it("should report 'import $symbol'") {
+                    val code = """
+                    import $symbol
+            """
+                    val findings = subject.compileAndLintWithContext(env, code)
+                    assertThat(findings).hasSize(1)
+                }
+            }
 
             it("should report wildcard import") {
                 val code = """
@@ -81,8 +100,7 @@ internal class UnnecessaryDefaultImportSpec : Spek({
             it("should not report enum value") {
                 assertNoViolations(
                     """
-                    import kotlin.io.FileWalkDirection.BOTTOM_UP
-            """
+                    """
                 )
             }
 

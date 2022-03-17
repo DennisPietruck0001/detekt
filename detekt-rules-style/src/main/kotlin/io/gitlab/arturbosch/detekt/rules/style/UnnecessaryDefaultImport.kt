@@ -93,6 +93,8 @@ class UnnecessaryDefaultImport(config: Config = Config.empty) : Rule(config) {
             "kotlin.ranges",
             "kotlin.sequences",
             "kotlin.text",
+            "java.lang",
+            "kotlin.jvm",
         )
     }
 }
