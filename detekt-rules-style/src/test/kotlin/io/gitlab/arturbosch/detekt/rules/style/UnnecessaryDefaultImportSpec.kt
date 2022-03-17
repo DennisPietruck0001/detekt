@@ -11,20 +11,20 @@ import org.spekframework.spek2.Spek
 import org.spekframework.spek2.style.specification.describe
 
 @KotlinCoreEnvironmentTest
-internal class ForbiddenDefaultImportTest : Spek({
+internal class UnnecessaryDefaultImportSpec : Spek({
     setupKotlinEnvironment(additionalJavaSourceRootPath = resourceAsPath("java"))
 
     val env: KotlinCoreEnvironment by memoized()
-    val subject by memoized { ForbiddenDefaultImport() }
+    val subject by memoized { UnnecessaryDefaultImport() }
 
-    describe("ForbiddenDefaultImport rule") {
+    describe("UnnecessaryDefaultImport rule") {
         context("report default import") {
             it("is default import") {
                 val code = """
-            import kotlin.ranges.*
-            import kotlin.io.DEFAULT_BUFFER_SIZE
-            import kotlin.io.FileTreeWalk
-            import kotlin.io.println
+                    import kotlin.ranges.*
+                    import kotlin.io.DEFAULT_BUFFER_SIZE
+                    import kotlin.io.FileTreeWalk
+                    import kotlin.io.println
             """
                 val findings = subject.compileAndLintWithContext(env, code)
                 assertThat(findings).hasSize(4)
@@ -63,7 +63,7 @@ internal class ForbiddenDefaultImportTest : Spek({
                 val findings = subject.compileAndLintWithContext(env, code)
                 assertThat(findings).isEmpty()
             }
-            it("should not report when import overwrites local") {
+            it("should not report when import overwrites local type definition") {
                 val code = """
                         package test
 
@@ -74,6 +74,21 @@ internal class ForbiddenDefaultImportTest : Spek({
                         }
                         
                         class Result
+                """
+                val findings = subject.compileAndLintWithContext(env, code)
+                assertThat(findings).isEmpty()
+            }
+
+            it("should not report when import overwrites local value") {
+                val code = """
+                        package test
+
+                        import kotlin.io.DEFAULT_BUFFER_SIZE // we need this
+                        
+                        const val DEFAULT_BUFFER_SIZE = 3
+                        fun foo() {
+                          println(DEFAULT_BUFFER_SIZE)
+                        } 
                 """
                 val findings = subject.compileAndLintWithContext(env, code)
                 assertThat(findings).isEmpty()

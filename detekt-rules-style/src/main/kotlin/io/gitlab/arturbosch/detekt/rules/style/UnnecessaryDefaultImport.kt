@@ -3,14 +3,19 @@ package io.gitlab.arturbosch.detekt.rules.style
 import io.gitlab.arturbosch.detekt.api.*
 import io.gitlab.arturbosch.detekt.api.internal.RequiresTypeResolution
 import io.gitlab.arturbosch.detekt.rules.fqNameOrNull
+import io.gitlab.arturbosch.detekt.rules.identifierName
 import org.jetbrains.kotlin.codegen.kotlinType
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtClassLiteralExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtImportDirective
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtReferenceExpression
 import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.ImportPath
 
 @RequiresTypeResolution
-class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
+class UnnecessaryDefaultImport(config: Config = Config.empty) : Rule(config) {
     override val issue = Issue(
         javaClass.simpleName,
         Severity.Style,
@@ -18,10 +23,12 @@ class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
         Debt.TEN_MINS
     )
 
+    private fun ImportPath.importedTypeOrNull(): String? = importedName?.asString()
+    private fun KtImportDirective.importedTypeOrNull(): String? = importPath?.importedTypeOrNull()
+
     private val violatingImportDirectiveCandidates = mutableListOf<KtImportDirective>()
 
     override fun visitImportDirective(importDirective: KtImportDirective) {
-        val e = listOf("").map(::Exception)
         super.visitImportDirective(importDirective)
         if (bindingContext == BindingContext.EMPTY) return
         if (importDirective.aliasName != null) return
@@ -31,7 +38,7 @@ class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
         val qualifiedPackage = if (importPath.isAllUnder) {
             importPath.fqName.asString()
         } else {
-            val nameToStrip = importPath.importedName
+            val nameToStrip = importPath.importedTypeOrNull()
             importPath.pathStr.removeSuffix(".$nameToStrip")
         }
 
@@ -50,6 +57,14 @@ class ForbiddenDefaultImport(config: Config = Config.empty) : Rule(config) {
             violatingType != null
                 && violatingType != referencedType
                 && violatingType.shortName() == referencedType.shortName()
+        }
+    }
+
+    override fun visitClass(klass: KtClass) {
+        super.visitClass(klass)
+
+        violatingImportDirectiveCandidates.removeAll{ candidate ->
+            candidate.importedTypeOrNull() == klass.identifierName()
         }
     }
 
